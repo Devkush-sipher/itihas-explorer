@@ -2,12 +2,12 @@
 
 /* Set the main background and font for a parchment feel */
 body {
-    background-color: #ADD8E6; /* Old Lace - a parchment-like color */
+    background-color: #ADD8E6; /* Old Lace - light blue color */
 }
 
 /* Style the main app container */
 .stApp {
-    background-color: #FDF5E6;
+    background-color: #454545;
     font-family: 'Georgia', serif;
     color: #4B382A; /* A dark brown, ink-like color */
 }
