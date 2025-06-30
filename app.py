@@ -18,14 +18,16 @@ st.set_page_config(
 
 # Function to load local CSS
 def load_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    try:
+        with open(file_name) as f:
+            st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.warning(f"CSS file '{file_name}' not found. The app will use default styling.")
 
 load_css('style.css')
 
-
 # --- Sidebar for User Selections ---
-st.sidebar.title(" explorers Settings")
+st.sidebar.title("Explorer Settings")
 
 selected_language_name = st.sidebar.selectbox(
     "Choose your language:",
@@ -65,10 +67,14 @@ with tab1:
             
             if details:
                 st.markdown(f"#### {details['label']}")
-                wiki_content = get_wiki_summary_and_image(details['page_title'], lang_code)
-                if wiki_content['image_url']:
-                    st.image(wiki_content['image_url'], caption=details['label'], use_column_width=True)
-                st.write(wiki_content['summary'])
+                # Check if a Wikipedia page exists before trying to fetch content
+                if details['page_title']:
+                    wiki_content = get_wiki_summary_and_image(details['page_title'], lang_code)
+                    if wiki_content['image_url']:
+                        st.image(wiki_content['image_url'], caption=details['label'], use_column_width=True)
+                    st.write(wiki_content['summary'])
+                else:
+                    st.info(f"Details for '{details['label']}' found on Wikidata, but no Wikipedia article is available in {selected_language_name}.")
             else:
                 st.error("Could not load featured figure details.")
 
@@ -80,10 +86,13 @@ with tab1:
 
             if details:
                 st.markdown(f"#### {details['label']}")
-                wiki_content = get_wiki_summary_and_image(details['page_title'], lang_code)
-                if wiki_content['image_url']:
-                    st.image(wiki_content['image_url'], caption=details['label'], use_column_width=True)
-                st.write(wiki_content['summary'])
+                if details['page_title']:
+                    wiki_content = get_wiki_summary_and_image(details['page_title'], lang_code)
+                    if wiki_content['image_url']:
+                        st.image(wiki_content['image_url'], caption=details['label'], use_column_width=True)
+                    st.write(wiki_content['summary'])
+                else:
+                    st.info(f"Details for '{details['label']}' found on Wikidata, but no Wikipedia article is available in {selected_language_name}.")
             else:
                 st.error("Could not load featured monument details.")
 
