@@ -4,27 +4,25 @@ import requests
 import wikipediaapi
 import datetime
 import streamlit as st
-from config import REGIONS
 
 # --- Wikidata SPARQL Query Functions ---
+# (No changes needed in the Wikidata functions, but they are included for completeness)
 
 WIKIDATA_ENDPOINT = "https://query.wikidata.org/sparql"
 
-@st.cache_data(ttl=3600) # Cache data for 1 hour
+@st.cache_data(ttl=3600)
 def run_sparql_query(query):
-    """Sends a SPARQL query to the Wikidata endpoint and returns the JSON response."""
     headers = {'User-Agent': 'ItihasExplorer/1.0 (Hackathon)', 'Accept': 'application/json'}
     try:
         response = requests.get(WIKIDATA_ENDPOINT, headers=headers, params={'query': query, 'format': 'json'})
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        st.error(f"Network Error: Could not connect to Wikidata. Please check your connection. Details: {e}")
+        st.error(f"Network Error: Could not connect to Wikidata. Details: {e}")
         return None
 
 @st.cache_data(ttl=3600)
 def get_entity_details(entity_q_code, lang_code='en'):
-    """Fetches the label, description, and Wikipedia page title for a given Wikidata Q-code."""
     query = f"""
     SELECT ?label ?description ?article WHERE {{
       BIND(wd:{entity_q_code} AS ?item)
@@ -50,18 +48,14 @@ def get_entity_details(entity_q_code, lang_code='en'):
 
 @st.cache_data(ttl=3600)
 def get_on_this_day_events(region_q_code, lang_code='en'):
-    """Finds historical events for the current month and day located in the selected region."""
     today = datetime.datetime.now()
     month = today.month
     day = today.day
-
-    # This query is simplified and might not always return results.
-    # A more robust implementation would check for events without a specific day as well.
     query = f"""
     SELECT ?eventLabel ?date WHERE {{
-      ?event wdt:P17 wd:Q668 . # Is in India
+      ?event wdt:P17 wd:Q668 .
       ?event p:P131 ?statement .
-      ?statement ps:P131 wd:{region_q_code} . # Located in region
+      ?statement ps:P131 wd:{region_q_code} .
       ?event wdt:P585 ?date.
       FILTER(MONTH(?date) = {month} && DAY(?date) = {day})
       SERVICE wikibase:label {{ bd:serviceParam wikibase:language "{lang_code},en". }}
@@ -81,10 +75,9 @@ def get_on_this_day_events(region_q_code, lang_code='en'):
 
 @st.cache_data(ttl=3600)
 def get_timeline_events(region_q_code, lang_code='en'):
-    """Fetches major historical events for a region, sorted by date."""
     query = f"""
     SELECT ?eventLabel ?eventDescription ?date WHERE {{
-      ?event wdt:P31/wdt:P279* wd:Q198. # Instance of 'historical event' or its subclasses
+      ?event wdt:P31/wdt:P279* wd:Q198.
       ?event p:P131 ?statement .
       ?statement ps:P131 wd:{region_q_code} .
       ?event wdt:P585 ?date.
@@ -107,15 +100,43 @@ def get_timeline_events(region_q_code, lang_code='en'):
 
 # --- Wikipedia API Functions ---
 
+def _get_image_url_from_api(page_title, lang_code):
+    """
+    Helper function to get the main image URL directly from the MediaWiki API.
+    This is much more reliable than parsing with the wikipedia-api library.
+    """
+    API_URL = f"https://{lang_code}.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "format": "json",
+        "titles": page_title,
+        "prop": "pageimages",
+        "pithumbsize": 500,  # Request a thumbnail of 500px width
+        "pilicense": "any"
+    }
+    try:
+        response = requests.get(API_URL, params=params, headers={'User-Agent': 'ItihasExplorer/1.0'})
+        response.raise_for_status()
+        data = response.json()
+        # The response structure is nested. We need to navigate it carefully.
+        page_id = next(iter(data['query']['pages']))
+        if page_id != "-1" and 'thumbnail' in data['query']['pages'][page_id]:
+            return data['query']['pages'][page_id]['thumbnail']['source']
+    except Exception as e:
+        print(f"Could not fetch image for '{page_title}'. Error: {e}")
+    return None
+
+
 @st.cache_data(ttl=3600)
 def get_wiki_summary_and_image(page_title, lang_code='en'):
     """
-    Fetches summary and a suitable image URL from a Wikipedia page.
-    This function is now robust against non-existent pages and lack of images.
+    Fetches summary using the 'wikipedia-api' library and the main image
+    using a direct MediaWiki API call for reliability.
     """
     if not page_title:
         return {"summary": "No Wikipedia article found for this entry.", "image_url": None}
 
+    # --- Step 1: Get summary using the wrapper library (it's good at this) ---
     wiki_api = wikipediaapi.Wikipedia(
         language=lang_code,
         user_agent="ItihasExplorer/1.0 (Hackathon)"
@@ -125,29 +146,11 @@ def get_wiki_summary_and_image(page_title, lang_code='en'):
     if not page.exists():
         return {"summary": f"The Wikipedia article '{page_title}' does not exist in this language.", "image_url": None}
 
-    # Fetch summary (first ~100 words)
     summary = ' '.join(page.summary.split(' ')[:100])
     if len(page.summary.split(' ')) > 100:
         summary += '...'
 
-    # Find a suitable image
-    image_url = None
-    # Prioritize the main page image if available
-    if hasattr(page, 'fullurl') and 'action=view' not in page.fullurl: # A heuristic check
-        if page.thumbnail:
-            image_url = page.thumbnail
+    # --- Step 2: Get the image using our robust, direct API call ---
+    image_url = _get_image_url_from_api(page_title, lang_code)
 
-    # If no main image, search sections for the first usable image
-    if not image_url:
-        for section in page.sections:
-            for img_title in section.images:
-                # Basic filter to avoid icons and flags
-                if img_title.lower().endswith(('.jpg', '.jpeg', '.png')):
-                     # We need to construct the URL manually or use another API call.
-                     # For simplicity, we'll skip this complex part in a hackathon.
-                     # The thumbnail is the most reliable approach with this library.
-                    break
-            if image_url:
-                break
-    
     return {"summary": summary, "image_url": image_url}
