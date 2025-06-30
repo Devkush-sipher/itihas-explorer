@@ -1,0 +1,33 @@
+/* style.css */
+
+/* Set the main background and font for a parchment feel */
+body {
+    background-color: #FDF5E6; /* Old Lace - a parchment-like color */
+}
+
+/* Style the main app container */
+.stApp {
+    background-color: #FDF5E6;
+    font-family: 'Georgia', serif;
+    color: #4B382A; /* A dark brown, ink-like color */
+}
+
+/* Style the sidebar */
+.st-emotion-cache-16txtl3 {
+    background-color: #EFE8D8; /* A slightly darker parchment shade */
+    border-right: 2px solid #DCD0B4;
+}
+
+/* Style titles and headers */
+h1, h2, h3 {
+    font-family: 'Garamond', serif;
+    color: #8B4513; /* SaddleBrown */
+    font-weight: bold;
+}
+
+/* Style the expander for the timeline */
+.st-emotion-cache-1h9usn1 { /* This class might change with Streamlit updates */
+    border: 1px solid #DCD0B4;
+    border-radius: 5px;
+    background-color: #FAF0E0;
+}
